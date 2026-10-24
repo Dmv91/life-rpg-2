@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Life RPG</title>
+<style>
+/* ===== THEME: --ac is the accent color (olivedrab #6b8e23). Change the variables below to recolor the whole app. Light mode values are in the media query underneath. ===== */
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#141a0d;--card:#1f2713;--card2:#2b3619;--tx:#eef3e2;--mu:#a3b184;--ac:#6b8e23;--bd:#44552a;--bad:#ef5350}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#eef2e2;--card:#fff;--card2:#e3ebd0;--tx:#1d2410;--mu:#586642;--ac:#6b8e23;--bd:#c6d3a8}}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}*{box-sizing:border-box}
+body{margin:0 auto;background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,-apple-system,Segoe UI,sans-serif;padding:14px;max-width:900px}
+h1{font-size:22px;margin:0}h2{font-size:14px;margin:22px 0 8px;letter-spacing:.08em;text-transform:uppercase;color:var(--mu);display:flex;justify-content:space-between;align-items:center}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px;position:relative}
+.top{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.pill{background:var(--card2);border-radius:99px;padding:6px 12px;font-weight:600}
+.bar{height:8px;background:var(--card2);border-radius:9px;overflow:hidden}.bar i{display:block;height:100%;border-radius:9px;transition:width .6s}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}.g2{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.lv{float:right;font-weight:700}.lock{color:var(--mu);font-size:13px}
+.q{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;margin:6px 0;background:var(--card2);border-radius:10px}
+.q.run{outline:2px solid var(--ac)}.q small{color:var(--mu)}
+button{font:inherit;background:var(--ac);color:#fff;border:0;border-radius:9px;padding:6px 12px;cursor:pointer;font-weight:600}
+button:disabled{background:var(--card2);color:var(--mu);cursor:not-allowed}button.ghost{background:var(--card2);color:var(--tx)}button.end{background:#e53935}
+input,select{font:inherit;background:var(--card2);color:var(--tx);border:1px solid var(--bd);border-radius:8px;padding:6px 8px;min-width:0}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.boss{text-align:center}.boss .em{font-size:44px}
+.ex input[type=number]{width:62px}.ex{flex-wrap:wrap}
+#ov{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;z-index:50}
+#stage{width:min(340px,92vw);height:280px;background:var(--card);border:2px solid var(--ac);border-radius:18px;position:relative;overflow:hidden;text-align:center;padding-top:12px}
+#stage .cap{position:absolute;bottom:10px;left:0;right:0;font-weight:700}
+.bs{font-size:90px;margin-top:40px;animation:hit .25s 6}@keyframes hit{0%,100%{transform:translateX(0)}25%{transform:translateX(-14px) rotate(-5deg)}75%{transform:translateX(14px) rotate(5deg)}}
+.hp{width:70%;margin:10px auto}.hp i{background:var(--bad);width:100%;animation:drain 1.6s forwards}@keyframes drain{to{width:0}}
+#xp{position:absolute;top:30%;left:0;right:0;text-align:center;font-size:30px;font-weight:800;color:#ffd54f;opacity:0;pointer-events:none}
+#xp.go{animation:fl 1.8s ease-out}@keyframes fl{0%{opacity:0;transform:translateY(30px)}30%{opacity:1}100%{opacity:0;transform:translateY(-60px)}}
+svg text{fill:var(--mu);font-size:10px}.flame{display:inline-block;animation:pulse 1.5s infinite}@keyframes pulse{50%{transform:scale(1.2)}}
+/* the guy */
+/* STICK FIGURE: body parts are SVG groups (.armL .armR .legL .legR .legs .head .body) that rotate around a joint set by transform-origin. Each activity is a class .a-<kind> with CSS keyframes. To add a new animation: add a kind in kindOf() in the JS, then write .a-<kind> rules here. */
+.guy line{stroke:var(--tx);stroke-width:5;stroke-linecap:round}.guy circle{stroke:var(--tx);stroke-width:4;fill:var(--card)}
+.armL,.armR{transform-origin:100px 64px}.legL,.legR,.legs{transform-origin:100px 100px}.head{transform-origin:100px 56px}.body{transform-origin:100px 150px}
+.guy #prop{font-size:30px;fill:var(--tx)}
+/* IDLE: gentle breathing */
+.a-idle .body{animation:br 2.5s infinite alternate}@keyframes br{to{transform:translateY(3px)}}
+/* TYPE / WORK: both arms tap forward alternately (code, finance) */
+.a-type .armR{transform:rotate(-8deg);animation:cR .28s infinite alternate}.a-type .armL{transform:rotate(-65deg);animation:cL .28s .14s infinite alternate}
+@keyframes cR{to{transform:rotate(0deg)}}@keyframes cL{to{transform:rotate(-78deg)}}
+.cl{transform-box:fill-box;transform-origin:left center;animation:cx 2.4s infinite}@keyframes cx{0%{transform:scaleX(0)}60%,100%{transform:scaleX(1)}} /* code lines type out on the laptop screen */
+.cur{animation:bk .6s steps(1) infinite}@keyframes bk{50%{opacity:0}}
+/* COUNT (finance): one hand flicks bills one at a time onto a growing stack */
+.a-count .armR{transform:rotate(-8deg);animation:fR .6s infinite alternate ease-in-out}.a-count .armL{transform:rotate(-60deg)}@keyframes fR{to{transform:rotate(-30deg)}}
+.bill{opacity:0;animation:fly 1.2s infinite ease-in}@keyframes fly{0%{transform:translate(0,0) rotate(0);opacity:0}15%{opacity:1}100%{transform:translate(34px,12px) rotate(35deg);opacity:0}}
+.stack{transform-box:fill-box;transform-origin:bottom;animation:stk 3.6s infinite}@keyframes stk{0%{transform:scaleY(.35)}85%,100%{transform:scaleY(1)}}
+/* HOUSE (real estate): shades eyes and scans the house; windows flicker, chimney smoke rises */
+.a-house .armR{transform:rotate(-125deg);animation:sh 1.6s infinite alternate}.a-house .head{animation:look 2.2s infinite alternate}
+@keyframes sh{to{transform:rotate(-118deg)}}@keyframes look{from{transform:rotate(-10deg)}to{transform:rotate(8deg)}}
+.win{animation:fl2 2.4s infinite alternate}.win2{animation-delay:1.1s}@keyframes fl2{50%{opacity:.35}}
+.smoke{opacity:0;transform-box:fill-box;transform-origin:center;animation:sm 2.4s infinite ease-out}.s2{animation-delay:.8s}.s3{animation-delay:1.6s}
+@keyframes sm{0%{transform:translate(0,0);opacity:.8}100%{transform:translate(8px,-34px) scale(1.8);opacity:0}}
+/* GAME: TV with a little player running and pixels blinking */
+.plr{animation:pm 1.2s infinite alternate steps(6)}@keyframes pm{to{transform:translateX(26px)}}.pix{animation:pxb .5s steps(1) infinite}@keyframes pxb{50%{opacity:.2}}
+@keyframes tR{to{transform:rotate(-85deg)}}@keyframes tL{to{transform:rotate(-125deg)}}
+/* READ / GAME: arms held forward; head tilts for reading, thumbs wiggle for gaming */
+.a-read .armR,.a-game .armR{transform:rotate(-25deg)}.a-read .armL,.a-game .armL{transform:rotate(-55deg)}
+.a-game .armR{animation:gR .2s infinite alternate}@keyframes gR{to{transform:rotate(-35deg)}}.a-read .head{animation:tilt 2s infinite alternate}@keyframes tilt{to{transform:rotate(12deg)}}
+/* WALK: legs and arms swing opposite, body bobs (real estate, fitness quests) */
+.a-walk .body{animation:bob .5s infinite alternate}@keyframes bob{to{transform:translateY(-4px)}}
+.a-walk .legL,.a-walk .armR{animation:w1 .5s infinite alternate}.a-walk .legR,.a-walk .armL{animation:w2 .5s infinite alternate}
+@keyframes w1{from{transform:rotate(-28deg)}to{transform:rotate(28deg)}}@keyframes w2{from{transform:rotate(28deg)}to{transform:rotate(-28deg)}}
+/* LIFT: arms raise and lower, prop (barbell) moves with them */
+.a-lift .armL{animation:lL .8s infinite alternate ease-in-out}.a-lift .armR{animation:lR .8s infinite alternate ease-in-out}.a-lift #prop{animation:pu .8s infinite alternate ease-in-out}
+@keyframes lL{to{transform:rotate(160deg)}}@keyframes lR{to{transform:rotate(-160deg)}}@keyframes pu{from{transform:translateY(60px)}to{transform:translateY(0)}}
+/* SQUAT: body drops while legs compress */
+.a-squat .body{animation:sq .9s infinite alternate ease-in-out}.a-squat .legs{animation:sl .9s infinite alternate ease-in-out}.a-squat .armR{transform:rotate(-90deg)}.a-squat .armL{transform:rotate(-90deg)}
+@keyframes sq{to{transform:translateY(16px)}}@keyframes sl{to{transform:scaleY(.65)}}
+/* SWEEP: body and broom slide side to side (chores) */
+.a-sweep .armR{transform:rotate(-60deg)}.a-sweep .armL{transform:rotate(-95deg)}.a-sweep .body{animation:sw .8s infinite alternate}@keyframes sw{to{transform:translateX(18px)}}
+.a-sweep #prop{animation:sw .8s infinite alternate}
+/* REVIEW ARENA: answer buttons, monster animations (hit = monster shakes when you answer right, atk = it lunges when you miss, die = victory) */
+.opt{display:block;width:100%;text-align:left;margin:5px 0}.opt.ok{background:#2e7d32;color:#fff}.opt.no{background:#c62828;color:#fff}
+.mon{font-size:64px;text-align:center}.mon.hit{animation:hit .25s 3}.mon.atk{animation:atk .4s}.mon.die{animation:die 1s forwards}
+@keyframes atk{50%{transform:scale(1.4) translateY(10px)}}@keyframes die{to{transform:rotate(80deg) scale(.1);opacity:0}}
+</style></head><body>
+<!-- HEADER: title + current/best streak -->
+<div class="top"><h1>⚔️ Life RPG</h1><div class="top">
+<span class="pill"><span class="flame">🔥</span> Streak <b id="cur">0</b></span><span class="pill">🏆 Best <b id="best">0</b></span></div></div>
+<!-- PLAYER LEVEL BAR: total XP across everything -->
+<div class="card" style="margin-top:12px"><div class="top"><b id="plv"></b><span id="gate" class="lock"></span></div>
+<div class="bar" style="margin-top:8px"><i id="pbar" style="background:var(--ac)"></i></div></div>
+
+<!-- HERO PANEL (animated guy, current task, timer, End button) and STATS WHEEL (radar chart) -->
+<div class="grid g2" style="margin-top:12px">
+<div class="card" style="text-align:center"><div id="xp"></div>
+<svg id="guy" viewBox="0 0 200 165" class="guy a-idle" style="width:100%;max-height:200px">
+<line x1="10" y1="150" x2="190" y2="150" style="stroke:var(--bd);stroke-width:3"/>
+<!-- SCENES (drawn behind the guy, shown only for the matching activity): desk, laptop (code), cash (finance), house (real estate), tv (gaming) -->
+<g id="desk"><line x1="112" y1="96" x2="196" y2="96" style="stroke:var(--bd)"/><line x1="188" y1="96" x2="188" y2="150" style="stroke:var(--bd)"/></g>
+<g id="laptop"><rect x="146" y="58" width="28" height="34" rx="3" fill="#0b0e14" stroke="#78909c" stroke-width="2"/><rect x="118" y="92" width="52" height="4" rx="2" fill="#78909c"/>
+<rect class="cl" x="150" y="64" width="18" height="3" fill="#7CFC9a"/><rect class="cl" style="animation-delay:.5s" x="150" y="71" width="12" height="3" fill="#4fc3f7"/><rect class="cl" style="animation-delay:1s" x="154" y="78" width="14" height="3" fill="#7CFC9a"/><rect class="cl" style="animation-delay:1.5s" x="150" y="85" width="9" height="3" fill="#ffd54f"/><rect class="cur" x="162" y="85" width="3" height="3" fill="#fff"/></g>
+<g id="cash"><g class="stack"><rect x="152" y="90" width="28" height="6" fill="#2e7d32"/><rect x="152" y="84" width="28" height="6" fill="#43a047"/><rect x="152" y="78" width="28" height="6" fill="#66bb6a"/></g>
+<rect class="bill" x="124" y="76" width="14" height="8" rx="1" fill="#81c784"/><rect class="bill" style="animation-delay:.4s" x="124" y="76" width="14" height="8" rx="1" fill="#a5d6a7"/><rect class="bill" style="animation-delay:.8s" x="124" y="76" width="14" height="8" rx="1" fill="#66bb6a"/></g>
+<g id="house"><rect x="180" y="62" width="8" height="16" fill="#8d6e63"/><ellipse class="smoke" cx="184" cy="58" rx="4" ry="3" fill="#9e9e9e"/><ellipse class="smoke s2" cx="184" cy="58" rx="4" ry="3" fill="#9e9e9e"/><ellipse class="smoke s3" cx="184" cy="58" rx="4" ry="3" fill="#9e9e9e"/>
+<polygon points="132,96 166,66 200,96" fill="#a1473b"/><rect x="138" y="96" width="56" height="54" fill="#d7ccc8"/><rect x="160" y="122" width="12" height="28" fill="#6d4c41"/>
+<rect class="win" x="146" y="106" width="10" height="10" fill="#ffd54f"/><rect class="win win2" x="176" y="106" width="10" height="10" fill="#ffd54f"/>
+<rect x="122" y="128" width="4" height="22" fill="#8d6e63"/><rect x="112" y="114" width="24" height="14" rx="2" fill="#fff" stroke="#8d6e63" stroke-width="2"/><text x="124" y="124" text-anchor="middle" style="fill:#c62828;font-size:7px;font-weight:700">SALE</text></g>
+<g id="tv"><rect x="161" y="106" width="8" height="44" fill="#78909c"/><rect x="136" y="64" width="58" height="42" rx="4" fill="#0b0e14" stroke="#78909c" stroke-width="3"/><rect x="142" y="94" width="46" height="4" fill="#2e7d32"/>
+<rect class="plr" x="146" y="82" width="8" height="12" fill="#4fc3f7"/><rect class="pix" x="172" y="72" width="7" height="7" fill="#ffd54f"/><rect class="pix" style="animation-delay:.25s" x="158" y="76" width="7" height="7" fill="#ef5350"/></g>
+<g class="body"><g class="legs"><g class="legL"><line x1="100" y1="100" x2="88" y2="146"/></g><g class="legR"><line x1="100" y1="100" x2="112" y2="146"/></g></g>
+<line x1="100" y1="56" x2="100" y2="100"/><g class="armL"><line x1="100" y1="64" x2="82" y2="92"/></g><g class="armR"><line x1="100" y1="64" x2="118" y2="92"/></g>
+<circle class="head" cx="100" cy="42" r="14"/></g><text id="prop" x="150" y="100" text-anchor="middle"></text></svg>
+<div class="top"><b id="hl">Idle</b><span><b id="tmr"></b> <button class="end" id="hend" style="display:none">End</button></span></div></div>
+<div class="card"><b>Stats wheel</b><svg id="wheel" viewBox="0 0 220 220" style="width:100%;max-height:230px"></svg></div></div>
+
+<!-- STAT CARDS: level + XP per main stat (filled by render()) -->
+<h2>Stats</h2><div class="grid" id="stats"></div>
+<!-- TIME TRACKED: today and all-time time per category (filled by times()) -->
+<h2>Time tracked</h2><div class="card" id="times"></div>
+<!-- MAIN QUESTS: one card per category (Code, Real Estate, Fitness, Finance), each with its own ＋ button and time -->
+<h2>Main quests</h2><div class="grid g2" id="main"></div>
+<!-- SIDE QUESTS: reading, gaming and chores (each its own category with its own time) -->
+<h2>Side quests</h2><div class="grid g2"><div class="card"><div class="top"><b>📖 Reading</b><span class="lock">⏱ <span id="trd"></span></span><button class="ghost" data-new="read">＋</button></div><div id="read"></div></div>
+<div class="card"><div class="top"><b>🎮 Gaming</b><span class="lock">⏱ <span id="tgm"></span></span><button class="ghost" data-new="game">＋</button></div><div id="game"></div></div>
+<div class="card"><div class="top"><b>🧹 Chores</b><button class="ghost" data-new="chr">＋</button></div><div id="chr"></div></div></div>
+<!-- BOSS BATTLES: unlocked after the daily minimum of main quests -->
+<h2>Boss battles</h2><div class="grid" id="bosses"></div>
+
+<!-- REVIEW ARENA: quiz battles for Code and Real Estate (content is built by arenaRender() in the JS) -->
+<h2>Review Arena</h2><div class="card" id="arena"></div>
+<!-- FOCUS MODE: countdown session on a category; the guy animates for that category -->
+<h2>Focus mode</h2><div class="card"><div class="row"><select id="fcs"><option value="code">💻 Code</option><option value="re">🏠 Real Estate</option><option value="fit">💪 Fitness</option><option value="fin">💰 Finance</option><option value="read">📖 Reading</option></select>
+<select id="fcd"><option value="15">15 min</option><option value="25" selected>25 min</option><option value="45">45 min</option><option value="60">60 min</option></select><button id="fcb">Start focus</button></div><div class="lock" id="fcn" style="margin-top:6px"></div></div>
+<!-- WORKOUT BUILDER: exercises with sets, reps, weight -->
+<h2>Workout</h2><div class="card"><div class="row" style="margin-bottom:6px"><button id="wst">Start workout</button><button class="ghost" id="wsd">Load starter</button><button class="ghost" id="wadd">＋ Exercise</button></div>
+<datalist id="exl"></datalist><div id="wex"></div><button id="wfin" style="margin-top:6px">Finish &amp; save</button></div>
+<!-- FITNESS PROGRESS CHART -->
+<h2>Fitness progress</h2><div class="card"><select id="cm"></select>
+<div style="overflow-x:auto"><svg id="chart" viewBox="0 0 600 170" style="min-width:480px;width:100%"></svg></div><div id="flist" class="lock"></div></div>
+
+<!-- INCOME TRACKER (ways to make money) -->
+<h2>Income tracker</h2><div class="card"><div class="row"><input id="ia" type="number" placeholder="$ earned" style="width:100px"><input id="is" placeholder="Source (gig, sale…)" style="flex:1;min-width:130px"><button id="ilog">Log income</button></div><div id="ilist" class="lock" style="margin-top:6px"></div></div>
+<!-- CUSTOM QUEST FORM -->
+<h2>Add your own quest</h2><div class="card"><div class="row"><select id="ac"></select><input id="an" placeholder="Quest name" style="flex:1;min-width:140px"><input id="ax" type="number" value="15" style="width:70px"><button id="aadd">Add</button></div></div>
+<div style="text-align:center;margin:20px"><button class="ghost" id="rst">Reset all data</button></div>
+<div id="ov"><div id="stage"></div></div>
+<script>
+// ===== CONFIG =====
+// MIN = main quests needed per day to unlock bosses and keep your streak. LV(n) = total XP needed to reach level n.
+const MIN=3,LV=n=>50*(n-1)*(n-1),KEY='liferpg2';
+// The four main stats: key -> [label, icon, color]. These keys (code/re/fit/fin) are used everywhere.
+const ST={code:['Code','💻','#4fc3f7'],re:['Real Estate','🏠','#ffb74d'],fit:['Fitness','💪','#81c784'],fin:['Finance','💰','#ffd54f']};
+// QUEST POOLS: [name, XP]. New quests are drawn randomly from these. Add or edit lines to customize.
+// Keys: the 4 stats + read (reading) + game (gaming) + chr (chores).
+const POOL={
+code:[['Code on a project for 1 hour',30],['Fix a bug',25],['Build a small feature',40],['Study a tutorial for 30 min',25],['Push a commit to GitHub',15],['Refactor a messy file',25],['Write tests for your code',30],['Add a project to your portfolio',45]],
+re:[['Review 3 listings',25],['Study a market report 20 min',20],['Analyze a deal (cap rate, cash flow)',40],['Watch a real estate lesson',20],['Research a neighborhood',25],['Message an agent or investor',30],['Study for a license exam 30 min',30]],
+fit:[['Take a 20 min walk',20],['Stretch for 10 min',15],['Drink 2L of water',10],['Prep a healthy meal',20],['Do a 10 min mobility routine',15]],
+fin:[['Apply to 5 jobs',40],['Pitch 3 freelance clients',45],['Post a gig on Upwork or Fiverr',35],['Sell an unused item online',30],['Update resume and LinkedIn',30],['Message 5 contacts about work',30],['Build a sample project to sell as a service',45],['Research a side hustle idea',20],['Do a paid micro-task or gig',30],['Follow up on pending applications',25]],
+read:[['Read 20 pages',10],['Read for 30 min',12],['Read a chapter',12],['Read a book on investing or coding',15]],
+game:[['Play a game for 30 min',10],['Play a story game for 1 hour',15],['Play online with a friend',15],['Try a new game',12]],
+chr:[['Dishes',5],['Laundry',8],['Tidy living space',8],['Take out trash',5],['Vacuum',8],['Wipe counters',5]]};
+// BOSSES: [id, emoji, name, description, XP]
+const BOSS=[['fam','🐉','Family Time Dragon','Spend real time with family',100],['fr','👹','Friend Night Golem','Hang out with friends',100]];
+// Exercise suggestions for the workout builder (you can still type any exercise name)
+const EXS=['Squat','Push-up','Crunch','Leg raise','Plank (sec)','Sit-up','Lunge','Bench press','Deadlift','Overhead press','Barbell row','Bicep curl'];
+// Starter workout: [exercise, sets, reps, weight]
+const STARTER=[['Squat',3,10,0],['Push-up',3,12,0],['Crunch',3,15,0],['Leg raise',3,12,0]];
+// ===== HELPERS =====
+// day(o) returns a date string YYYY-MM-DD; o = days from today (-1 = yesterday)
+const day=(o=0)=>{const d=new Date();d.setDate(d.getDate()+o);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const $=id=>document.getElementById(id);
+// ===== STATE =====
+// S holds ALL saved data. xp=XP per stat, act=active quests, cnt=main quests done per day, boss=bosses beaten per day,
+// fit=workout history, wo=workout being built, run=currently running task, tl=time log, inc=income log. cm=chosen chart metric.
+let S,cm='vol';
+const fresh=()=>({xp:{code:0,re:0,fit:0,fin:0,side:0,boss:0},act:[],cnt:{},boss:{},fit:[],wo:[],wd:'',run:null,inc:[],tl:{},cur:0,best:0,last:''});
+// Load saved data from this browser (and migrate XP/streak from the very first version if found)
+try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!S||!S.xp){S=fresh();try{const o=JSON.parse(localStorage.getItem('liferpg1'));if(o&&o.xp){Object.assign(S.xp,o.xp);S.cur=o.cur||0;S.best=o.best||0;S.last=o.last||''}}catch(e){}}
+if(!S.tl)S.tl={}; // older saves had no time log
+if(!S.rev)S.rev=[];if(!S.ad)S.ad={};if(typeof S.bw!='number')S.bw=0; // rev=missed arena questions, ad=arena wins per day, bw=battles won
+// Migrate the old single 'hob' category into Reading / Gaming
+S.act.forEach(q=>{if(q.s=='hob')q.s=/read/i.test(q.n)?'read':'game'});
+Object.values(S.tl).forEach(d=>{if(d.hob){d.read=(d.read||0)+d.hob;delete d.hob}});
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+// Level math: lvl(xp)=level, prog(xp)=[level, % progress to next, XP remaining]
+const lvl=x=>{let n=1;while(x>=LV(n+1))n++;return n};
+const prog=x=>{const n=lvl(x);return[n,(x-LV(n))/(LV(n+1)-LV(n))*100,LV(n+1)-x]};
+// total()=all XP, md()=main quests completed today
+const total=()=>Object.values(S.xp).reduce((a,b)=>a+b,0);
+const md=()=>S.cnt[day()]||0;
+// ===== QUEST GENERATION =====
+// spawn(k) adds a random quest from category k, avoiding names already active
+function spawn(k){const used=S.act.map(q=>q.n),p=POOL[k].filter(x=>!used.includes(x[0])),a=p.length?p:POOL[k],x=a[Math.floor(Math.random()*a.length)];
+ S.act.push({id:'q'+Date.now()+Math.random().toString(36).slice(2,6),t:ST[k]?'m':(k=='read'||k=='game')?'h':'c',s:k,n:x[0],x:x[1]})}
+// ensure() keeps at least 2 active quests in every category so new tasks never run out
+function ensure(){Object.keys(POOL).forEach(k=>{while(S.act.filter(q=>q.s==k).length<2)spawn(k)})}
+// STREAK: when today's main-quest goal is first met, extend (or restart) the streak and update the best
+function streak(){if(md()>=MIN&&S.last!=day()){S.cur=S.last==day(-1)?S.cur+1:1;S.last=day();S.best=Math.max(S.best,S.cur)}}
+// Floating '+XP' animation over the hero panel
+function pop(x){const e=$('xp');e.textContent='+'+x+' XP';e.classList.remove('go');void e.offsetWidth;e.classList.add('go')}
+// ===== ANIMATION MAPPING =====
+// kindOf(quest) -> [animation kind, prop emoji]. Add a new kind here, then add CSS for .a-<kind>.
+const kindOf=q=>q.s=='code'?['type','']:q.s=='fin'?['count','']:q.s=='re'?['house','']:q.s=='fit'?['walk','👟']:q.s=='chr'?['sweep','🧹']:q.s=='read'?['read','📖']:['game','🎮'];
+// Position [x,y] of the prop emoji inside the SVG for each animation kind
+const POS={type:[150,100],count:[150,100],house:[150,100],walk:[168,140],lift:[100,30],squat:[165,140],read:[122,100],game:[122,100],sweep:[140,140],idle:[160,40]};
+// SCENES: which SVG scene groups (props drawn in the SVG) are visible for each animation kind
+const SCN={type:['desk','laptop'],count:['desk','cash'],house:['house'],game:['tv']};
+// HERO PANEL: sets the stick-figure animation class, prop, label and End button from S.run
+function hero(){const r=S.run;let k='idle',p='💤',l='Idle: pick a quest and press Start';
+ if(r){if(r.id=='workout'){const e=S.wo[S.wo.length-1];[k,p]=e&&/squat|lunge/i.test(e[0])?['squat','🦵']:['lift','🏋️'];l='Workout'}else if(r.id=='focus'){[k,p]=kindOf({s:r.st,n:''});l='Focus: '+(ST[r.st]?ST[r.st][0]:'Reading')+(r.left?' ⚠️ distracted':'')}else{const q=S.act.find(x=>x.id==r.id);if(q){[k,p]=kindOf(q);l=q.n}}}
+ $('guy').setAttribute('class','guy a-'+k);const pr=$('prop');pr.textContent=p;pr.setAttribute('x',POS[k][0]);pr.setAttribute('y',POS[k][1]);
+ ['desk','laptop','cash','house','tv'].forEach(g=>$(g).style.display=(SCN[k]||[]).includes(g)?'':'none'); // show only this activity's scene
+ $('hl').textContent=l;$('hend').style.display=r?'':'none';tick()}
+// Timer display, refreshed every second
+function tick(){const r=S.run;if(!r){$('tmr').textContent='';return}const s=Math.floor((Date.now()-r.t0)/1000),f=n=>String(n).padStart(2,'0');
+ if(r.id=='focus'){const left=r.dur*60-s;if(left<=0){finishFocus(true);render();return} // time is up: pay out
+  $('tmr').textContent='⏳ '+f(Math.floor(left/60))+':'+f(left%60);return} // focus shows a countdown
+ $('tmr').textContent=f(Math.floor(s/60))+':'+f(s%60)} // other tasks count up
+setInterval(tick,1000);
+// STATS WHEEL: 6-axis radar chart; each spoke is the level of that stat (scale grows with your highest level)
+function wheel(){const ks=['code','re','fit','fin','boss','side'],lb=['Code','Real Est.','Fitness','Finance','Bonds','Life'],lv=ks.map(k=>lvl(S.xp[k])),mx=Math.max(5,...lv);
+ const P=(i,f)=>{const a=-Math.PI/2+i*Math.PI/3;return[110+Math.cos(a)*70*f,110+Math.sin(a)*70*f]};let s='';
+ [.25,.5,.75,1].forEach(f=>s+=`<polygon points="${ks.map((_,i)=>P(i,f).join(',')).join(' ')}" fill="none" stroke="var(--bd)"/>`);
+ ks.forEach((_,i)=>{const[x,y]=P(i,1);s+=`<line x1="110" y1="110" x2="${x}" y2="${y}" stroke="var(--bd)"/>`});
+ s+=`<polygon points="${ks.map((_,i)=>P(i,lv[i]/mx).join(',')).join(' ')}" fill="var(--ac)" fill-opacity=".4" stroke="var(--ac)" stroke-width="2"/>`;
+ ks.forEach((_,i)=>{const[x,y]=P(i,1.3);s+=`<text x="${x}" y="${y}" text-anchor="middle" style="fill:var(--tx);font-size:11px">${lb[i]} ${lv[i]}</text>`});
+ $('wheel').innerHTML=s}
+// ===== MAIN RENDER =====
+// Rebuilds the whole page from state S, then saves. Call render() after changing any state.
+function render(){ensure();
+ // Player level bar + streak + boss gate text
+ const t=total(),[pl,pp]=prog(t);$('plv').textContent='Level '+pl+' Adventurer · '+t+' XP';$('pbar').style.width=pp+'%';
+ $('cur').textContent=(S.last==day()||S.last==day(-1))?S.cur:0;$('best').textContent=S.best;
+ $('gate').textContent='Main quests today: '+md()+'/'+MIN+(md()>=MIN?' ✅ bosses unlocked':' to unlock bosses');
+ // Stat cards
+ $('stats').innerHTML=Object.keys(ST).map(k=>{const[n,i,c]=ST[k],[l,p,nx]=prog(S.xp[k]);
+  return`<div class="card"><span style="font-size:28px">${i}</span><span class="lv" style="color:${c}">Lv ${l}</span><br><b>${n}</b><div class="bar" style="margin:6px 0"><i style="width:${p}%;background:${c}"></i></div><small class="lock">${S.xp[k]} XP · ${nx} to next</small></div>`}).join('');
+ // row(q) builds one quest line: shows End (and highlights) if it is the running task, otherwise Start and reroll
+ const R=S.run,row=q=>{const on=R&&R.id==q.id;return`<div class="q ${on?'run':''}"><span>${ST[q.s]?ST[q.s][1]+' ':''}${q.n} <small>+${q.x} XP</small></span><span class="row">${on?`<button class="end" data-en="${q.id}">End</button>`:`<button data-st="${q.id}" ${R?'disabled':''}>Start</button><button class="ghost" data-rr="${q.id}" ${R?'disabled':''}>↻</button>`}</span></div>`};
+ // Main quests grouped by category, then hobbies and chores
+ $('main').innerHTML=Object.keys(ST).map(k=>`<div class="card"><div class="top"><b>${ST[k][1]} ${ST[k][0]}</b><span class="lock">⏱ ${fmt(tDay(k))} today · ${fmt(tAll(k))}</span><button class="ghost" data-new="${k}">＋</button></div>${S.act.filter(q=>q.s==k).map(row).join('')}</div>`).join('');$('read').innerHTML=S.act.filter(q=>q.s=='read').map(row).join('');$('game').innerHTML=S.act.filter(q=>q.s=='game').map(row).join('');$('trd').textContent=fmt(tDay('read'))+' today · '+fmt(tAll('read'));$('tgm').textContent=fmt(tDay('game'))+' today · '+fmt(tAll('game'));$('chr').innerHTML=S.act.filter(q=>q.t=='c').map(row).join('');
+ // Boss cards: locked until the daily minimum is met
+ const bd=S.boss[day()]||[];
+ $('bosses').innerHTML=BOSS.map(b=>{const d=bd.includes(b[0]),ok=md()>=MIN&&!d;return`<div class="card boss"><div class="em">${b[1]}</div><b>${b[2]}</b><div class="lock">${b[3]} · +${b[4]} XP</div><button data-b="${b[0]}" ${ok?'':'disabled'} style="margin-top:8px">${d?'Defeated today ✔':md()>=MIN?'Fight!':'🔒 Locked'}</button></div>`}).join('');
+ // Workout builder rows (editable inputs)
+ $('wst').disabled=!!R;$('wst').textContent=R&&R.id=='workout'?'Workout running…':'Start workout';
+ $('wex').innerHTML=S.wo.map((e,i)=>`<div class="q ex row"><input list="exl" value="${e[0]}" data-i="${i}" data-f="0" style="flex:1;min-width:110px"><input type="number" value="${e[1]}" data-i="${i}" data-f="1"> sets <input type="number" value="${e[2]}" data-i="${i}" data-f="2"> reps <input type="number" value="${e[3]||''}" placeholder="0" data-i="${i}" data-f="3"> lb <button class="ghost" data-rm="${i}">✕</button></div>`).join('')||'<span class="lock">No exercises yet. Load the starter or add one.</span>';
+ // Fitness chart dropdown: volume, reps, plus every exercise you have logged
+ const names=[...new Set(S.fit.flatMap(f=>f.ex.map(e=>e[0])))];
+ $('cm').innerHTML=`<option value="vol">Total volume (sets×reps×lb)</option><option value="reps">Total reps</option>`+names.map(n=>`<option value="${n}">${n}: best weight/reps</option>`).join('');$('cm').value=cm;
+ wheel();chart();income();times();focusInfo();hero();save()}
+// FITNESS CHART: plots the selected metric across your last 30 workouts
+function chart(){const L=S.fit.slice(-30),W=600,H=130;let pts=[];
+ L.forEach(f=>{let v=null;if(cm=='vol')v=f.ex.reduce((a,e)=>a+e[1]*e[2]*e[3],0);else if(cm=='reps')v=f.ex.reduce((a,e)=>a+e[1]*e[2],0);else{const m=f.ex.filter(e=>e[0]==cm);if(m.length)v=Math.max(...m.map(e=>e[3]>0?e[3]:e[2]))}
+  if(v!==null)pts.push([f.d,v])});
+ let s=`<line x1="0" y1="${H}" x2="${W}" y2="${H}" stroke="var(--bd)"/>`;
+ if(pts.length){const vs=pts.map(p=>p[1]),hi=Math.max(...vs,1),lo=Math.min(...vs,0),r=hi-lo||1,X=i=>pts.length>1?20+i*(W-40)/(pts.length-1):W/2,Y=v=>H-8-(v-lo)/r*(H-30);
+  s+=`<polyline fill="none" stroke="#81c784" stroke-width="2.5" points="${pts.map((p,i)=>X(i)+','+Y(p[1])).join(' ')}"/>`;
+  pts.forEach((p,i)=>s+=`<circle cx="${X(i)}" cy="${Y(p[1])}" r="4" fill="#81c784"/>`);
+  s+=`<text x="4" y="12">max ${hi}</text><text x="20" y="${H+14}">${pts[0][0]}</text><text x="${W-70}" y="${H+14}">${pts[pts.length-1][0]}</text>`}
+ else s+=`<text x="20" y="70">Finish a workout to see progress</text>`;$('chart').innerHTML=s;
+ $('flist').innerHTML=`<b>${S.fit.length}</b> workouts · <b>${S.fit.reduce((a,f)=>a+f.ex.reduce((b,e)=>b+e[1],0),0)}</b> total sets<br>`+S.fit.slice(-3).reverse().map(f=>`${f.d}: ${f.ex.map(e=>`${e[0]} ${e[1]}×${e[2]}${e[3]?' @'+e[3]:''}`).join(', ')}`).join('<br>')}
+// Income tracker totals (this month + all time)
+function income(){const m=day().slice(0,7),tot=S.inc.reduce((a,i)=>a+i.a,0),mo=S.inc.filter(i=>i.d.startsWith(m)).reduce((a,i)=>a+i.a,0);
+ $('ilist').innerHTML=`This month <b>$${mo}</b> · All time <b>$${tot}</b><br>`+S.inc.slice(-3).reverse().map(i=>`${i.d}: $${i.a} ${i.s}`).join('<br>')}
+// ===== REVIEW ARENA =====
+// QB = question bank per stat. Each question: [question, [4 options], index of the correct option, explanation]. Add your own lines here!
+const QB={
+code:[
+["What does [1,2,3].map(x => x*2) return?",["[2,4,6]","[1,2,3]","6","undefined"],0,"map returns a new array with the function applied to every item."],
+["Time complexity of binary search on a sorted array?",["O(n)","O(log n)","O(n²)","O(1)"],1,"Each step halves the search space, so it is O(log n)."],
+["Which JS keyword declares a block-scoped variable you can reassign?",["var","const","let","def"],2,"let is block-scoped and reassignable; const cannot be reassigned."],
+["In JavaScript, what does === compare?",["Value only","Value and type","Reference only","Type only"],1,"Strict equality checks value and type with no coercion."],
+["What does typeof null return in JavaScript?",["null","undefined","object","number"],2,"A famous legacy quirk: typeof null is object."],
+["Which data structure is LIFO (last in, first out)?",["Queue","Stack","Hash map","Tree"],1,"A stack pops the most recently pushed item first."],
+["Average time to look up a key in a hash map?",["O(1)","O(log n)","O(n)","O(n log n)"],0,"Hashing jumps straight to the bucket: O(1) on average."],
+["SQL: which clause filters groups after GROUP BY?",["WHERE","HAVING","ORDER BY","LIMIT"],1,"WHERE filters rows before grouping; HAVING filters after."],
+["Which git command creates a new branch and switches to it?",["git branch -d","git checkout -b","git merge","git stash"],1,"git checkout -b name (or git switch -c name)."],
+["Which HTTP method replaces a whole resource and is idempotent?",["POST","PUT","GET","CONNECT"],1,"PUT replaces the resource; repeating it gives the same result."],
+["In Python, what does len('hello') return?",["4","5","6","error"],1,"There are five characters."],
+["What is a closure?",["A function bundled with the variables from where it was created","A loop that never ends","A way to close a file","A type of class"],0,"Closures remember the scope they were defined in."]],
+re:[
+["NOI (net operating income) is…",["Rent minus the mortgage payment","Income minus operating expenses (before debt)","Price minus loan","Rent plus appreciation"],1,"NOI = income − operating expenses. It excludes mortgage payments."],
+["Cap rate is calculated as…",["NOI ÷ property value","Cash flow ÷ cash invested","Price ÷ rent","Rent ÷ expenses"],0,"Cap rate = NOI ÷ price (or value)."],
+["The 1% rule says monthly rent should be at least…",["1% of the purchase price","1% of annual rent","10% of price","1% of NOI"],0,"A quick screen: monthly rent ≥ 1% of price."],
+["A DSCR below 1.0 means…",["The property is very profitable","Income doesn’t cover the debt payments","Taxes are too high","The loan is paid off"],1,"DSCR = NOI ÷ debt service. Under 1 means NOI falls short of the loan payment."],
+["US residential rental property is depreciated over…",["10 years","15 years","27.5 years","39 years"],2,"27.5 years for residential (39 for commercial)."],
+["Earnest money is…",["A good-faith deposit from the buyer","The agent’s fee","Closing costs paid by the seller","Property tax"],0,"A deposit showing the buyer is serious, applied at closing."],
+["A contingency in an offer is…",["A bonus for the agent","A condition that must be met for the sale to proceed","A penalty clause","A tax break"],1,"Common ones: inspection, financing and appraisal."],
+["Cash-on-cash return is…",["Annual pre-tax cash flow ÷ cash invested","NOI ÷ price","Appreciation ÷ price","Rent ÷ price"],0,"It measures the return on the actual cash you put in."],
+["Equity in a property equals…",["Price minus down payment","Market value minus loan balance","Rent minus costs","Loan plus value"],1,"What you own: value less what you owe."],
+["An LTV (loan-to-value) of 80% means…",["The loan is 80% of the property value","You own 80% outright","The rate is 80%","Taxes are 80%"],0,"Loan ÷ value. A 20% down payment gives 80% LTV."]]};
+// Helpers: rnd(a,b)=random integer, shuf(arr)=shuffled copy
+const rnd=(a,b)=>Math.floor(a+Math.random()*(b-a+1)),shuf=a=>a.map(x=>[Math.random(),x]).sort((p,q)=>p[0]-q[0]).map(x=>x[1]);
+// mk(): builds a math question with 4 numeric options around the correct answer (spread = typical distractor gap)
+function mk(q,c,f,spread,e){const set=new Set([c]);let g=0;while(set.size<4&&g++<60)set.add(+(c+(Math.random()<.5?-1:1)*spread*rnd(1,4)).toFixed(1));const o=shuf([...set]);return[q,o.map(f),o.indexOf(c),e]}
+const $f=x=>x<0?'-$'+(-x):'$'+x; // money formatter
+// GEN = generated real-estate math questions, so the numbers are different every time
+const GEN=[
+()=>{const n=rnd(15,60)*1000,p=rnd(20,60)*10000,c=+(n/p*100).toFixed(1);return mk(`NOI is $${n.toLocaleString()} and the price is $${p.toLocaleString()}. What is the cap rate?`,c,x=>x+'%',.8,`Cap rate = NOI ÷ price = ${c}%.`)},
+()=>{const r=rnd(12,30)*100,m=rnd(8,20)*100,e=rnd(2,5)*100,c=r-m-e;return mk(`Rent is $${r}/mo, mortgage $${m}/mo, other expenses $${e}/mo. What is the monthly cash flow?`,c,$f,50,`${r} − ${m} − ${e} = ${$f(c)} per month.`)},
+()=>{const cf=rnd(2,8)*1200,i=rnd(4,12)*10000,c=+(cf/i*100).toFixed(1);return mk(`Annual cash flow is $${cf.toLocaleString()} on $${i.toLocaleString()} cash invested. Cash-on-cash return?`,c,x=>x+'%',1.2,`Annual cash flow ÷ cash invested = ${c}%.`)},
+()=>{const p=rnd(15,50)*10000,r=rnd(15,45)*1000,g=+(p/r).toFixed(1);return mk(`Price is $${p.toLocaleString()} and annual rent is $${r.toLocaleString()}. What is the gross rent multiplier (GRM)?`,g,x=>x+'x',1.5,`GRM = price ÷ annual rent = ${g}.`)}];
+let AR=null; // current battle (not saved): {st,max,hp,hearts,list,i,ok,ans,right,over,won,xp,t0}
+const wrap=(st,x)=>{const o=shuf(x[1].map((t,i)=>[t,i==x[2]]));return{st,q:x[0],o:o.map(p=>p[0]),a:o.findIndex(p=>p[1]),e:x[3]}}; // shuffle options, remember the correct one
+// Start a battle: 2 questions you previously missed (review queue) + new ones. Monster HP = 3 + your level in that stat (max 8)
+function arenaStart(st){const max=Math.min(8,3+lvl(S.xp[st])),list=S.rev.filter(q=>q.st==st).slice(0,2),used=new Set(list.map(q=>q.q));let g=0;
+ while(list.length<max+2&&g++<200){const x=(st=='re'&&Math.random()<.45)?GEN[rnd(0,GEN.length-1)]():QB[st][rnd(0,QB[st].length-1)];if(used.has(x[0]))continue;used.add(x[0]);list.push(wrap(st,x))}
+ AR={st,max,hp:max,hearts:3,list:shuf(list),i:0,ok:0,ans:null,t0:Date.now()};arenaRender()}
+// Answer: right = damage the monster, wrong = lose a heart and the question goes to your review queue
+function arenaAnswer(i){if(!AR||AR.ans!==null||AR.over)return;const q=AR.list[AR.i];AR.ans=i;AR.right=i==q.a;
+ if(AR.right){AR.hp--;AR.ok++;S.rev=S.rev.filter(r=>r.q!=q.q)}else{AR.hearts--;if(!S.rev.some(r=>r.q==q.q))S.rev.push(q)}
+ save();arenaRender()}
+function arenaNext(){if(AR.hp<=0)return arenaEnd(true);if(AR.hearts<=0)return arenaEnd(false);AR.i++;AR.ans=null;arenaRender()}
+// End: XP = 8 per correct answer (+30 for a win). Time is logged. First win per stat per day counts as a main quest.
+function arenaEnd(won){AR.over=true;AR.won=won;AR.xp=AR.ok*8+(won?30:0);if(AR.xp)award(AR.st,AR.xp);addTime(AR.st,(Date.now()-AR.t0)/1000);
+ if(won){S.bw++;const a=S.ad[day()]=S.ad[day()]||[];if(!a.includes(AR.st)){a.push(AR.st);S.cnt[day()]=md()+1;streak()}}
+ render();arenaRender()}
+// Draws the arena card: menu, battle, or result screen
+function arenaRender(){const el=$('arena');
+ if(!AR){el.innerHTML=`<div class="row"><button data-ar="code">💻 Code battle</button><button data-ar="re">🏠 Real estate battle</button></div><div class="lock" style="margin-top:6px">Battles won: <b>${S.bw}</b> · Review queue: <b>${S.rev.length}</b> missed question(s) come back in battles. Bigger monsters as you level up.</div>`;return}
+ const mon={code:'🐛',re:'🏚️'}[AR.st];
+ if(AR.over){el.innerHTML=`<div style="text-align:center"><div class="mon ${AR.won?'die':''}">${AR.won?mon:'💀'}</div><b>${AR.won?'Victory!':'Defeated'}</b> +${AR.xp} XP<div class="lock">${AR.ok} correct. Missed questions are saved to your review queue.</div><button data-ax style="margin-top:8px">Back</button></div>`;return}
+ const q=AR.list[AR.i],a=AR.ans;
+ el.innerHTML=`<div class="top"><span>${'❤️'.repeat(AR.hearts)+'🖤'.repeat(3-AR.hearts)}</span><span class="lock">Monster HP ${AR.hp}/${AR.max}</span><button class="ghost" data-ax>Retreat</button></div>
+ <div class="mon ${a!==null?(AR.right?'hit':'atk'):''}">${mon}</div><div class="bar" style="width:60%;margin:0 auto 10px"><i style="width:${AR.hp/AR.max*100}%;background:var(--bad)"></i></div>
+ <p><b>${q.q}</b>${S.rev.some(r=>r.q==q.q)&&a===null?' <small class="lock">(review)</small>':''}</p>
+ ${q.o.map((t,i)=>`<button class="ghost opt ${a!==null?(i==q.a?'ok':i==a?'no':''):''}" data-ao="${i}">${t}</button>`).join('')}
+ ${a!==null?`<p>${AR.right?'✅ Direct hit!':'❌ Miss.'} ${q.e}</p><button data-an>${AR.hp<=0||AR.hearts<=0?'Finish':'Next'}</button>`:''}`}
+
+// ===== FOCUS MODE =====
+// A focus session is stored as S.run = {id:'focus', st:category, dur:minutes, t0, left:false}. Leaving the browser tab sets left=true.
+// Finish a full session: XP = minutes × 1.5 (×1 if you left the tab), plus 10% per earlier clean session today (max +50%). Give up: no XP, time is still logged.
+function finishFocus(done){const r=S.run;if(!r)return;addTime(r.st,Math.min(r.dur*60,(Date.now()-r.t0)/1000));S.run=null;
+ if(done){const clean=!r.left,n=clean?((S.fc&&S.fc.d==day()?S.fc.n:0)+1):0;S.fc={d:day(),n};
+  award(ST[r.st]?r.st:'side',Math.round(r.dur*(clean?1.5:1)*(1+.1*Math.min(5,Math.max(0,n-1)))));
+  if(ST[r.st]){S.cnt[day()]=md()+1;streak()}}else S.fc={d:day(),n:0}}
+// Combo text under the focus controls
+function focusInfo(){const n=S.fc&&S.fc.d==day()?S.fc.n:0;$('fcb').disabled=!!S.run;$('fcn').textContent='Focus combo today: '+n+' (next session ×'+(1+.1*Math.min(5,n)).toFixed(1)+'). Finish without leaving this tab for +50% XP; leaving breaks the bonus and resets the combo.'}
+
+// ===== TIME TRACKING =====
+// S.tl = { 'YYYY-MM-DD': { code: seconds, re: seconds, ... } }. Time is logged when you press End.
+const CATS=[['code','💻 Code','#4fc3f7'],['re','🏠 Real Estate','#ffb74d'],['fit','💪 Fitness','#81c784'],['fin','💰 Finance','#ffd54f'],['read','📖 Reading','#ba68c8'],['game','🎮 Gaming','#f06292'],['chr','🧹 Chores','#90a4ae']];
+const fmt=s=>{s=Math.round(s);const h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h?h+'h '+m+'m':m?m+'m':s+'s'}; // seconds -> '1h 5m'
+const tAll=k=>Object.values(S.tl).reduce((a,d)=>a+(d[k]||0),0), tDay=k=>(S.tl[day()]||{})[k]||0; // all-time / today seconds
+function addTime(k,secs){S.tl[day()]=S.tl[day()]||{};S.tl[day()][k]=(S.tl[day()][k]||0)+secs}
+// Draws the Time tracked card: bars are relative to your most-used category
+function times(){const mx=Math.max(1,...CATS.map(c=>tAll(c[0])));
+ $('times').innerHTML=CATS.map(c=>`<div style="margin:6px 0"><div class="top"><span>${c[1]}</span><span class="lock">today <b>${fmt(tDay(c[0]))}</b> · total <b>${fmt(tAll(c[0]))}</b></span></div><div class="bar"><i style="width:${tAll(c[0])/mx*100}%;background:${c[2]}"></i></div></div>`).join('')+`<div class="lock" style="margin-top:6px">All categories today: <b>${fmt(CATS.reduce((a,c)=>a+tDay(c[0]),0))}</b></div>`}
+// Ends the running task: log elapsed time to its category, then pay out XP and spawn a replacement quest
+function endRun(){const r=S.run;if(!r)return;
+ if(r.id=='focus'){finishFocus(false);return} // ending a focus session early = give up
+ if(r.id=='workout'){finishWorkout();return} // workouts log their own time
+ const q=S.act.find(x=>x.id==r.id);if(q)addTime(q.s,(Date.now()-r.t0)/1000);
+ S.run=null;complete(r.id)}
+function award(k,x){S.xp[k]+=x;pop(x)}
+// complete(id): remove a finished quest, award XP to its stat, count it toward today's goal if it's a main quest
+function complete(id){const q=S.act.find(x=>x.id==id);if(!q)return;S.act=S.act.filter(x=>x.id!=id);
+ award(ST[q.s]?q.s:'side',q.x);if(q.t=='m'){S.cnt[day()]=md()+1;streak()}}
+// Boss fight overlay animation
+function play(em,t,xp){$('stage').innerHTML=`<div class="bs">${em}</div><div class="bar hp"><i></i></div><div class="cap">${t} +${xp} XP</div>`;$('ov').style.display='flex';setTimeout(()=>$('ov').style.display='none',2400)}
+$('ov').onclick=()=>$('ov').style.display='none';
+// Save the workout being built: Fitness XP = 20 + 3 per set; first workout of the day counts as a main quest
+function finishWorkout(){if(!S.wo.length)return;const ex=S.wo.filter(e=>e[0]),sets=ex.reduce((a,e)=>a+(+e[1]||0),0);if(!ex.length)return;
+ S.fit.push({d:day(),ex:ex.map(e=>[e[0],+e[1]||0,+e[2]||0,+e[3]||0])});S.wo=[];if(S.run&&S.run.id=='workout'){addTime('fit',(Date.now()-S.run.t0)/1000);S.run=null} // log workout time
+ if(S.wd!=day()){S.wd=day();S.cnt[day()]=md()+1;streak()}award('fit',20+sets*3);render()}
+// ===== EVENT HANDLERS =====
+// One click listener handles every button through data-* attributes: st=start, en=end, rr=reroll, new=new quest, b=boss fight, rm=remove exercise
+document.addEventListener('click',e=>{const d=e.target.dataset;if(!d)return;
+ if(d.ar)arenaStart(d.ar); // arena: start a battle
+ if(d.ao!==undefined)arenaAnswer(+d.ao); // arena: pick an answer
+ if(d.an!==undefined)arenaNext(); // arena: next question / finish
+ if(d.ax!==undefined){AR=null;arenaRender()} // arena: back / retreat
+ if(d.st&&!S.run){S.run={id:d.st,t0:Date.now()};render()}
+ if(d.en){endRun();render()}
+ if(d.rr){S.act=S.act.filter(q=>q.id!=d.rr);render()}
+ if(d.new){if(S.act.filter(q=>q.s==d.new).length<6)spawn(d.new);render()} // ＋ adds a quest in that category (max 6)
+ if(d.b){const B=BOSS.find(x=>x[0]==d.b),a=S.boss[day()]||(S.boss[day()]=[]);if(md()<MIN||a.includes(d.b))return;a.push(d.b);S.xp.boss+=B[4];render();play(B[1],B[2]+' defeated!',B[4])}
+ if(d.rm){S.wo.splice(+d.rm,1);render()}});
+$('hend').onclick=()=>{endRun();render()}; // End button in the hero panel
+// Editing workout inputs saves straight into S.wo (no re-render so typing isn't interrupted)
+document.addEventListener('change',e=>{const d=e.target.dataset;if(d&&d.f!==undefined){S.wo[+d.i][+d.f]=d.f=='0'?e.target.value:+e.target.value;save();hero()}});
+// Workout builder buttons: start timer, load starter, add exercise, finish & save
+$('wst').onclick=()=>{if(!S.run){S.run={id:'workout',t0:Date.now()};render()}};
+$('wsd').onclick=()=>{S.wo=STARTER.map(x=>x.slice());render()};
+$('wadd').onclick=()=>{S.wo.push(['',3,10,0]);render()};
+$('wfin').onclick=finishWorkout;
+$('cm').onchange=e=>{cm=e.target.value;chart()};
+// Log income: gives Finance XP (10 + $/10, capped at 100)
+$('ilog').onclick=()=>{const a=+$('ia').value;if(!a)return;S.inc.push({d:day(),a,s:$('is').value||''});$('ia').value=$('is').value='';award('fin',10+Math.min(90,Math.round(a/10)));render()};
+// Focus mode: start a session, and mark it distracted if you leave the tab
+$('fcb').onclick=()=>{if(S.run)return;S.run={id:'focus',st:$('fcs').value,dur:+$('fcd').value,t0:Date.now(),left:false};render()};
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&S.run&&S.run.id=='focus'){S.run.left=true;save();hero()}});
+$('exl').innerHTML=EXS.map(x=>`<option value="${x}">`).join('');
+// Custom quest form: pick a category, name and XP
+$('ac').innerHTML=Object.keys(ST).map(k=>`<option value="m|${k}">Main · ${ST[k][0]}</option>`).join('')+'<option value="h|read">Reading</option><option value="h|game">Gaming</option><option value="c|chr">Chore</option>';
+$('aadd').onclick=()=>{const n=$('an').value.trim();if(!n)return;const[t,s]=$('ac').value.split('|');S.act.push({id:'c'+Date.now(),t,s,n,x:+$('ax').value||10});$('an').value='';render()};
+// Reset wipes all progress
+$('rst').onclick=()=>{if(confirm('Erase all progress?')){S=fresh();render()}};
+// START THE APP
+render();arenaRender();
+</script></body></html>
